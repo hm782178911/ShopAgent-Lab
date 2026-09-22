@@ -1,0 +1,16 @@
+# All relative paths are relative to this repository, not the shell cwd.
+source: modelscope
+model_id: Qwen/Qwen3.5-2B
+revision: master
+local_dir: models/Qwen3.5-2B
+# For strict cross-machine reproduction, use an immutable ModelScope revision.
+# download_model.py records downloaded file hashes in model-source.json.
+serving:
+  name: shopping-agent
+  host: 127.0.0.1
+  port: 8000
+  context_length: 24576
+  tensor_parallel_size: 1
+  mem_fraction_static: 0.70
+  tool_call_parser: qwen3_coder
+  extra_args: []

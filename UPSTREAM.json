@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/YYHDBL/shopping-grpo-longhorizon",
+  "commit": "dc6c9af8e48c8e6325101b39d1d20060f69e4221",
+  "local_fixes_included": [
+    "scripts/train_grpo.py",
+    "data/environment.json",
+    "tests/test_public_entrypoints.py",
+    "tests/test_environment_manifest.py"
+  ],
+  "license_status": "Upstream has no explicit license found; attribution does not grant redistribution rights."
+}

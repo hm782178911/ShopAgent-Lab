@@ -1,0 +1,20 @@
+--- a/verl/workers/rollout/replica.py
++++ b/verl/workers/rollout/replica.py
+@@ -325,7 +325,8 @@
+ 
+ 
+ def _load_sglang():
+-    os.environ["SGLANG_USE_CPU_ENGINE"] = "1"
++    # SGLang 0.5.15 GPU wheels do not provide CPU KV-cache kernels.
++    # Keep the selected device backend when importing the replica.
+ 
+     try:
+         import vllm  # noqa: F401
+@@ -364,7 +365,6 @@
+ 
+     from verl.workers.rollout.sglang_rollout.async_sglang_server import SGLangReplica
+ 
+-    del os.environ["SGLANG_USE_CPU_ENGINE"]
+     return SGLangReplica
+ 
+ 

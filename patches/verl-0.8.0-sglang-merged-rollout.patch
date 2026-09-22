@@ -1,0 +1,24 @@
+--- a/verl/workers/rollout/sglang_rollout/async_sglang_server.py
++++ b/verl/workers/rollout/sglang_rollout/async_sglang_server.py
+@@ -310,8 +310,8 @@
+             **engine_kwargs,
+         }
+ 
+-        # update lora-related args
+-        if self.model_config.lora_rank > 0:
++        # Merged-weight rollout must not initialize the adapter engine.
++        if self.lora_as_adapter:
+             args.update(
+                 {
+                     "enable_lora": True,
+@@ -609,8 +609,8 @@
+ 
+         generate_request = GenerateReqInput(**request)
+ 
+-        # Add lora request
+-        if self.model_config.lora_rank > 0:
++        # Only adapter-mode rollout should name an adapter.
++        if self.lora_as_adapter:
+             generate_request.lora_path = SGLANG_LORA_NAME
+ 
+         output = await self.tokenizer_manager.generate_request(generate_request, None).__anext__()
