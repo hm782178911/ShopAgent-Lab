@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/runtime_env.sh"
 cd "$ROOT"
 # Let veRL explicitly select the rank's device. P2P fallback can be overridden
 # to 0 on a machine whose peer-to-peer collective test passes.

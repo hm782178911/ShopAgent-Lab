@@ -1,11 +1,17 @@
 {
   "python": "3.12",
-  "base_packages": ["sglang", "torch", "transformers", "numpy", "modelscope"],
+  "base_packages": [
+    "sglang",
+    "torch",
+    "transformers",
+    "numpy",
+    "modelscope"
+  ],
   "packages": {
-    "sglang": "0.5.15.post2.dev468+g85ac56c82",
+    "sglang": "0.5.16",
     "torch": "2.11.0",
     "transformers": "5.12.1",
-    "numpy": "2.3.5",
+    "numpy": "1.26.4",
     "modelscope": "1.38.1",
     "verl": "0.8.0",
     "peft": "0.20.0",

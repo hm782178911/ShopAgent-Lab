@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/runtime_env.sh"
 ACTOR_CHECKPOINT="$(realpath -m -- "${1:?usage: bash scripts/export_grpo.sh <global_step_*/actor> [output_dir]}")"
 OUTPUT_DIR="${2:-$ROOT/outputs/models/grpo-merged}"
 if [[ ! -f "$ACTOR_CHECKPOINT/huggingface/config.json" ]]; then

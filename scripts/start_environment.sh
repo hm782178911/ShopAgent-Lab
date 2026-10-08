@@ -9,5 +9,7 @@ if [[ ! -x "$ENV_DIR/bin/python" ]]; then
   exit 1
 fi
 
-export PATH="$ENV_DIR/bin:$PATH"
+unset PYTHONPATH PYTHONHOME LD_LIBRARY_PATH
+export PYTHONNOUSERSITE=1
+export PATH="$ENV_DIR/bin:/usr/local/bin:/usr/bin:/bin"
 exec "$ROOT/environments/ShopSimulator/shop_env/start.sh"

@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 eval = []
 # CUDA training packages are provided by scripts/setup.sh and configs/runtime.json.
-# They inherit the validated SGLang environment rather than resolving a second stack.
+# Full transitive dependencies are pinned with hashes in configs/runtime.lock.
 sft-accelerated = [
   "bitsandbytes>=0.45,<1",
   "liger-kernel>=0.6,<1",

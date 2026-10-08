@@ -11,7 +11,7 @@ from importlib.metadata import PackageNotFoundError, distribution, version
 from pathlib import Path
 
 
-from shopping_grpo.runtime import load_profile, validate_versions
+from shopping_grpo.runtime import load_profile, validate_versions, validate_isolation
 
 EXPECTED_VERSIONS = load_profile()["packages"]
 PATCH_MARKER = "SHOPPING_GRPO_DYNAMIC_SAMPLING_PATCH_V3"
@@ -133,7 +133,7 @@ def compose_runtime_config(overrides):
 
 
 def validate_transformers_revision():
-    # Setup and preflight use the same explicit conda runtime profile.
+    # Setup and preflight use the same isolated runtime profile.
     if version("transformers") != EXPECTED_VERSIONS["transformers"]:
         raise SystemExit("Transformers release differs from configs/runtime.json")
 
@@ -407,6 +407,7 @@ def main():
         raise SystemExit(f"incompatible Python: expected 3.12, got {sys.version.split()[0]}")
 
     try:
+        validate_isolation()
         installed = validate_versions(EXPECTED_VERSIONS)
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/runtime_env.sh"
 BASE_MODEL="${BASE_MODEL:-$("$ROOT/.venv/bin/python" "$ROOT/scripts/download_model.py" --config "${MODEL_CONFIG:-$ROOT/configs/model.yaml}" --local-only)}"
 ADAPTER_DIR="${SFT_ADAPTER_DIR:-$ROOT/outputs/models/sft-lora}"
 MERGED_DIR="${SFT_MERGED_DIR:-$ROOT/outputs/models/sft-merged}"

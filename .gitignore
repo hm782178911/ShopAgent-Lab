@@ -21,3 +21,6 @@ models/
 swanlog/
 wandb/
 logs/
+
+# Project-owned managed Python installations
+.runtime/

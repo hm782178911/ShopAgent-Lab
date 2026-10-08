@@ -1,0 +1,2 @@
+-r ../environments/ShopSimulator/shop_env/requirements.txt
+-r build.in

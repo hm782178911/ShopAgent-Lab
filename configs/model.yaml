@@ -1,7 +1,7 @@
 # All relative paths are relative to this repository, not the shell cwd.
 source: modelscope
 model_id: Qwen/Qwen3.5-2B
-revision: master
+revision: c00cc5fd7803c60b7788e053dcce33d0d26b11ef
 local_dir: models/Qwen3.5-2B
 # For strict cross-machine reproduction, use an immutable ModelScope revision.
 # download_model.py records downloaded file hashes in model-source.json.

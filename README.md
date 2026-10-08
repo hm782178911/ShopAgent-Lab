@@ -6,74 +6,83 @@
 复现并进行 SGLang 适配，沿用原作者数据、ShopSimulator 和 Reward v3。
 来源与授权状态见 [SOURCES.md](SOURCES.md)。上游历史成绩不代表本实现的效果。
 
-## 1. 当前状态与前提
+## 1. 环境与复现范围
 
 工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。
 
-脚本已整合环境安装、依赖补丁、版本预检查、EOS 对齐和 GRPO adapter 导出合并。
-验证平台为 Linux、两张 96 GB NVIDIA GPU、已有 Python 3.12 conda SGLang 环境。
+安装会从固定公开来源创建项目自己的 Python、SGLang、PyTorch、CUDA 编译工具和仿真环境。
+**不需要 conda、预装 SGLang、系统 Python 开发包或本机 SGLang 源码。**
+`.venv` 不继承系统包；`.runtime/python` 保存独立 Python。GPU 入口会清除外部 Python/CUDA 库路径，使用项目自己的 CUDA 工具。
 
-- 已验证首次安装、重复安装、SFT 一次真实更新、GRPO 一次真实更新、最终模型重载及两条任务评估。
-- 单步 SFT 不保证模型已学会购物。本次单步 SFT 直接接 GRPO 未组成有效训练组；GRPO 更新测试采用此前完整训练的 SFT checkpoint。
-- 尚未在 SGLang 下完成全量训练与正式 200 题对比，少量测试不能当作效果成绩。
-- **setup 复用已有 SGLang 基础环境，不负责从零安装 SGLang、CUDA 或驱动。**
+仍需宿主机提供 Linux x86_64（glibc ≥ 2.34）、兼容 CUDA 13 的 NVIDIA 驱动、GPU、Git、curl、tar、gzip、patch、gcc/g++。
+系统驱动不属于 Python 虚拟环境。验证机器为两张 96 GB NVIDIA GPU、驱动 595.84；其他硬件配置需另测。
+Ubuntu 缺少基础工具时先执行：
 
-安装与 GRPO 预检查共用 [configs/runtime.json](configs/runtime.json)：
+```bash
+sudo apt-get update
+sudo apt-get install -y git curl ca-certificates build-essential patch gzip
+```
 
-| 组件 | 验证版本 |
+安装与 GRPO 预检查共用 [configs/runtime.json](configs/runtime.json)，全部传递依赖及文件哈希锁定在
+[configs/runtime.lock](configs/runtime.lock)，仿真依赖锁定在 [configs/shopsim.lock](configs/shopsim.lock)。
+
+| 组件 | 固定版本 |
 |---|---|
-| Python | 3.12（验证使用 3.12.13） |
-| SGLang | `0.5.15.post2.dev468+g85ac56c82` |
-| SGLang 源提交 | `85ac56c82308b8f0e86b3aa8542b61af0de666aa` |
+| Python / 仿真 Python | 3.12.13 / 3.10.20 |
+| uv | 0.11.30（缺少时自动下载并校验 SHA256） |
+| SGLang | 0.5.16，官方 wheel |
 | PyTorch / Transformers | 2.11.0 / 5.12.1 |
-| NumPy / ModelScope | 2.3.5 / 1.38.1 |
+| NumPy / ModelScope | 1.26.4 / 1.38.1 |
 | veRL / PEFT | 0.8.0 / 0.20.0 |
 | Ray / TensorDict | 2.56.1 / 0.10.0 |
 
-SGLang 是源码开发版本，仅创建同名 conda 环境并不足够。PyTorch 允许 CUDA 构建后缀，
-SGLang 的提交后缀也会检查。其他 GPU、模型、依赖组合需另测。
+单步验证用于检查工程流程，不代表训练效果。单步 SFT 不保证已学会购物，GRPO 的有效更新验证需要有能力的完整 SFT checkpoint。
+已验证首次/重复安装、非零单步 SFT、一次双卡 GRPO 更新、导出和三种模型的两任务推理；范围详见 [验证说明](docs/validation.md)。
+本仓库尚未完成这套独立 SGLang 环境下的全量训练和正式 200 题对比。
 
 ## 2. 克隆与安装
-
-需要 Git、uv、patch、gzip 和 Python 开发头文件；ShopSimulator 单独使用 Python 3.10。
 
 ```bash
 git clone git@github.com:hm782178911/ShopAgent-Lab.git
 cd ShopAgent-Lab
-conda activate xlm_py312
-MAIN_PYTHON="$(command -v python)" bash scripts/setup.sh
+bash scripts/setup.sh
 ```
 
-`xlm_py312` 是已有基础环境的示例名称，`MAIN_PYTHON` 必须指向满足上述版本的解释器。
-setup 会先校验基础版本与 `Python.h`，再：
+不需要激活 conda。setup 会：
 
-1. 创建独立 `.venv`，继承基础包，按 [requirements-training.txt](configs/requirements-training.txt) 补充依赖。
-2. 用复制模式单独安装 veRL，应用并校验动态采样和两个 SGLang 补丁。
-3. 创建独立仿真环境，解压并校验商品数据，构建搜索索引。
+1. 准备固定版本 uv 和两个独立 Python（自带 `Python.h`）。
+2. 按哈希锁安装完整依赖（含固定构建工具，禁用隐式构建环境），执行 `uv pip check` 检查声明约束一致性，再安装本项目。
+3. 用复制模式安装依赖，对 veRL 应用可重复、带源文件哈希检查的补丁，不修改下载缓存或其他环境。
+4. 建立独立 ShopSimulator 环境，校验商品数据并构建搜索索引。
 
-重复安装可再次执行，不修改原 conda 环境。已有 `.venv` 为符号链接或基于另一解释器时会拒绝覆盖，
-请使用新克隆目录。缓存完整时可设置 `UV_OFFLINE=true` 节约下载；离线缺包会报错。
+可以重复执行。已有环境继承外部包、使用外部 Python 或是符号链接时会拒绝覆盖，请使用新的克隆目录。
+不要复制或移动 `.venv`、`.runtime` 到另一目录；在新目录重跑安装。
+本项目使用 requirements 哈希锁，**不要用 `uv sync` 替代 setup**。
 
-旧的 `uv.lock` 与冲突的训练 extras 已移除。训练环境由 setup 管理，**不要运行 `uv sync`
-覆盖这套继承环境**。补充包采用 `--no-deps` 保持验证组合；veRL 的 NumPy、SwanLab 的 protobuf
-声明约束与继承版本仍有差异，运行通过不等于依赖元数据完全无冲突。
+### 下载与缓存
 
-### 每个运行终端的环境变量
-
-激活基础 conda 环境、进入仓库后执行：
+优先直连。若 PyPI 较慢，可使用镜像与官方源回退；所有安装包仍必须匹配锁定哈希：
 
 ```bash
-export PATH="$PWD/.venv/bin:$PATH"
-export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
-PY_INCLUDE="$(.venv/bin/python -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-test -f "$PY_INCLUDE/Python.h"
-export C_INCLUDE_PATH="$PY_INCLUDE${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
+UV_INDEX=https://mirrors.aliyun.com/pypi/simple \
+UV_INDEX_STRATEGY=unsafe-best-match bash scripts/setup.sh
+```
+
+这里允许多个源匹配**已固定版本和哈希**，不会自动升级依赖。镜像不保证拥有全部版本。
+GitHub 上的 uv/Python 下载若确有网络问题，可临时配置代理；不要把代理地址写进仓库。
+下载缓存可复用以节约流量，缓存并非运行时依赖。已有项目 Python 和完整包缓存时可用 `UV_OFFLINE=true` 重复安装；离线缺包会明确报错。
+
+### 运行终端
+
+每个终端进入仓库后设置仿真地址，本地请求绕过代理：
+
+```bash
 export NO_PROXY="127.0.0.1,localhost${NO_PROXY:+,$NO_PROXY}"
 export no_proxy="$NO_PROXY"
 export SHOPSIM_BASE_URL=http://127.0.0.1:5701
 ```
 
-本机路径通过环境变量传入。下载优先直连，网络确有需要时再配置代理。
+直接使用 `.venv/bin/python` 或本文的 shell 入口，无需手动设置 Python.h、CUDA_HOME 或 PYTHONPATH。
 
 ## 3. ModelScope 下载
 
@@ -82,7 +91,7 @@ export SHOPSIM_BASE_URL=http://127.0.0.1:5701
 ```yaml
 source: modelscope
 model_id: Qwen/Qwen3.5-2B
-revision: master
+revision: c00cc5fd7803c60b7788e053dcce33d0d26b11ef
 local_dir: models/Qwen3.5-2B
 ```
 
@@ -95,7 +104,7 @@ local_dir: models/Qwen3.5-2B
 
 完整权重约 4.55 GB，下载后生成包含来源及 SHA256 的 `model-source.json`。
 `--local-only` 检查文件存在、分片完整性和来源标记，不重新计算所有哈希，也不下载。
-不要用未登记的非空目录作为下载目标。`master` 会移动，严格复现应选不可变 revision 并保存哈希清单。
+不要用未登记的非空目录作为下载目标。默认已固定不可变 revision；切换模型或 revision 时使用新的下载目录。
 
 ## 4. 启动仿真与 Base 推理
 
@@ -255,11 +264,12 @@ bash scripts/evaluate.sh grpo
 严格成功要求 `gold_purchase` 终态且 `reward_valid=true`。默认奖励是环境规则，不需要外部 LLM 裁判；
 额外 Judge 见 [docs/evaluation.md](docs/evaluation.md)。
 
-测试需要 pytest；基础环境没有时可先执行 `uv pip install --python .venv/bin/python pytest`。
+pytest 已包含在锁定环境中。
 
 ```bash
 .venv/bin/python -m pytest \
-  tests/test_runtime_installation.py tests/test_export_grpo_cli.py \
+  tests/test_runtime_installation.py tests/test_runtime_isolation.py \
+  tests/test_runtime_environment.py tests/test_export_grpo_cli.py \
   tests/test_merge_lora_adapter.py tests/test_grpo_dynamic_sampling_config.py \
   tests/test_model_source.py tests/test_sglang_token_counter.py \
   tests/test_context_window.py tests/test_environment_manifest.py \
@@ -270,8 +280,8 @@ bash scripts/evaluate.sh grpo
 
 | 现象 | 检查方向 |
 |---|---|
-| setup 版本不匹配 | 检查 MAIN_PYTHON 和 runtime.json，不关闭检查来混用环境 |
-| Python.h 缺失 | 查看实际解释器 include 路径，仅有目录或 Imaging.h 不够 |
+| setup 拒绝旧环境 | 用新的克隆目录；不要继承旧 conda 或软链接 .venv |
+| Python.h / CUDA 编译器缺失 | 重跑 setup 修复项目环境，不借用另一个 conda 环境 |
 | CPU 内核 / adapter 错误 | 重新运行 setup；补丁会校验哈希，未知源文件会拒绝修改 |
 | checkpoint 路径错误 | 使用实际运行目录的 global_step_*/actor，各仓库 outputs 不会自动共享 |
 | 输出非空 | 换新目录，不随意删除已有结果 |
@@ -280,4 +290,20 @@ bash scripts/evaluate.sh grpo
 | 仿真无可用槽位 | 检查并发及中断残留 lease，确认无其他任务后再处理 |
 
 运行前后用 `nvidia-smi` 检查 GPU，只停止自己启动的服务。模型权重、输出、虚拟环境和凭据
-不提交到 Git。早期文档保留用于追溯，当前安装与运行命令以本文为准。
+不提交到 Git。当前安装与运行命令以本文为准。
+
+## 11. 更新依赖锁（维护者）
+
+普通复现只运行 setup。调整 [configs/runtime.in](configs/runtime.in) 后，使用固定 uv 重新解析：
+
+```bash
+uv pip compile configs/runtime.in --python-version 3.12 \
+  --python-platform x86_64-manylinux_2_34 --generate-hashes -o configs/runtime.lock
+uv pip compile configs/build.in --python-version 3.10 \
+  --python-platform x86_64-manylinux_2_34 --generate-hashes -o configs/build.lock
+uv pip compile configs/shopsim.in --python-version 3.10 \
+  --python-platform x86_64-manylinux_2_34 --generate-hashes -o configs/shopsim.lock
+```
+
+随后同步 runtime.json，在新目录验证安装、依赖检查、单步训练、导出和推理，再提交锁文件。
+不要仅修改版本预检查来跳过不兼容问题。GPU 架构、驱动和随机采样会影响数值结果，本项目不承诺逐位一致。
