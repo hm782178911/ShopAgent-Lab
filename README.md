@@ -3,102 +3,64 @@
 面向购物 Agent 的后训练实践，涵盖 SFT、GRPO 与评估，基于 SGLang。
 
 本项目基于 [shopping-grpo-longhorizon](https://github.com/YYHDBL/shopping-grpo-longhorizon)
-复现并进行 SGLang 适配，沿用原作者数据、ShopSimulator 仿真环境及 Reward v3。
-模型通过 ModelScope 获取。来源和授权状态见 [SOURCES.md](SOURCES.md)，上游说明见
-[docs/upstream-README.md](docs/upstream-README.md)。上游历史成绩不代表本实现的效果。
+复现并进行 SGLang 适配，沿用原作者数据、ShopSimulator 和 Reward v3。
+来源与授权状态见 [SOURCES.md](SOURCES.md)。上游历史成绩不代表本实现的效果。
 
-## 1. 验证范围：先读这里
+## 1. 当前状态与前提
 
-唯一工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。
+工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。
 
-在 Linux、两张 96 GB NVIDIA GPU、已有 Python 3.12 conda SGLang 环境上，已从
-GitHub 独立克隆，完成完整模型下载、独立仿真环境构建、SFT 单步更新、GRPO 单步更新、
-模型导出合并和重载评估。23 项针对模型配置、上下文、数据及环境契约的测试通过。
+脚本已整合环境安装、依赖补丁、版本预检查、EOS 对齐和 GRPO adapter 导出合并。
+验证平台为 Linux、两张 96 GB NVIDIA GPU、已有 Python 3.12 conda SGLang 环境。
 
-必须区分：
+- 已验证首次安装、重复安装、SFT 一次真实更新、GRPO 一次真实更新、最终模型重载及两条任务评估。
+- 单步 SFT 不保证模型已学会购物。本次单步 SFT 直接接 GRPO 未组成有效训练组；GRPO 更新测试采用此前完整训练的 SFT checkpoint。
+- 尚未在 SGLang 下完成全量训练与正式 200 题对比，少量测试不能当作效果成绩。
+- **setup 复用已有 SGLang 基础环境，不负责从零安装 SGLang、CUDA 或驱动。**
 
-- SFT 单步测试确认参数发生变化，不代表模型已经学会购物。
-- 本次单步 SFT 直接接 GRPO，96 条轨迹未组成有效训练组，更新次数为 0。
-- 使用此前完整训练的 SFT checkpoint 后，GRPO 完成一次有效更新，导出的模型完成两条评估任务。
-- 只用两条固定评估任务验证接口和闭环；没有在 SGLang 下重跑完整训练或正式 200 题效果实验。
+安装与 GRPO 预检查共用 [configs/runtime.json](configs/runtime.json)：
 
-**以下是基于已有 conda SGLang 环境的已验证配置。全新机器从零安装 SGLang 尚未验证。**
-`scripts/setup.sh`、`pyproject.toml` 和 `uv.lock` 仍对应旧依赖配置，且 setup 尚未自动应用
-两个 SGLang 补丁。走本文流程时不要再运行 `setup.sh` 或 `uv sync` 覆盖环境。
+| 组件 | 验证版本 |
+|---|---|
+| Python | 3.12（验证使用 3.12.13） |
+| SGLang | `0.5.15.post2.dev468+g85ac56c82` |
+| SGLang 源提交 | `85ac56c82308b8f0e86b3aa8542b61af0de666aa` |
+| PyTorch / Transformers | 2.11.0 / 5.12.1 |
+| NumPy / ModelScope | 2.3.5 / 1.38.1 |
+| veRL / PEFT | 0.8.0 / 0.20.0 |
+| Ray / TensorDict | 2.56.1 / 0.10.0 |
 
-## 2. 克隆与前置环境
+SGLang 是源码开发版本，仅创建同名 conda 环境并不足够。PyTorch 允许 CUDA 构建后缀，
+SGLang 的提交后缀也会检查。其他 GPU、模型、依赖组合需另测。
 
-需要 Git、uv、patch、gzip、可用 NVIDIA 驱动，以及包含 Python 开发头文件的 Python 3.12。
-ShopSimulator 单独使用 Python 3.10。两卡显存预算按每卡约 96 GB 验证，其他硬件需另测。
+## 2. 克隆与安装
+
+需要 Git、uv、patch、gzip 和 Python 开发头文件；ShopSimulator 单独使用 Python 3.10。
 
 ```bash
 git clone git@github.com:hm782178911/ShopAgent-Lab.git
 cd ShopAgent-Lab
 conda activate xlm_py312
+MAIN_PYTHON="$(command -v python)" bash scripts/setup.sh
 ```
 
-`xlm_py312` 是本次使用的已有环境名称；不要仅创建同名空环境就认为依赖已满足。
-主要版本如下，SGLang 是源码开发版本：
+`xlm_py312` 是已有基础环境的示例名称，`MAIN_PYTHON` 必须指向满足上述版本的解释器。
+setup 会先校验基础版本与 `Python.h`，再：
 
-| 组件 | 验证版本 |
-|---|---|
-| Python | 3.12.13 |
-| SGLang | 0.5.15.post2.dev468+g85ac56c82 |
-| SGLang 源提交 | `85ac56c82308b8f0e86b3aa8542b61af0de666aa` |
-| PyTorch / Transformers | 2.11.0 / 5.12.1 |
-| veRL / PEFT | 0.8.0 / 0.20.0 |
-| Ray / TensorDict | 2.56.1 / 0.10.0 |
-| NumPy / ModelScope | 2.3.5 / 1.38.1 |
+1. 创建独立 `.venv`，继承基础包，按 [requirements-training.txt](configs/requirements-training.txt) 补充依赖。
+2. 用复制模式单独安装 veRL，应用并校验动态采样和两个 SGLang 补丁。
+3. 创建独立仿真环境，解压并校验商品数据，构建搜索索引。
 
-先核对 conda 环境中提供的基础依赖：
+重复安装可再次执行，不修改原 conda 环境。已有 `.venv` 为符号链接或基于另一解释器时会拒绝覆盖，
+请使用新克隆目录。缓存完整时可设置 `UV_OFFLINE=true` 节约下载；离线缺包会报错。
 
-```bash
-python - <<'PY'
-import sys, importlib.metadata as m
-print(sys.executable)
-for name in ('sglang', 'torch', 'transformers', 'numpy', 'modelscope'):
-    print(name, m.version(name))
-PY
-```
+旧的 `uv.lock` 与冲突的训练 extras 已移除。训练环境由 setup 管理，**不要运行 `uv sync`
+覆盖这套继承环境**。补充包采用 `--no-deps` 保持验证组合；veRL 的 NumPy、SwanLab 的 protobuf
+声明约束与继承版本仍有差异，运行通过不等于依赖元数据完全无冲突。
 
-### 2.1 创建独立训练环境
+### 每个运行终端的环境变量
 
-在全新克隆目录执行。`.venv` 不应提交到 Git；不要把它链接到其他项目的环境。
-
-```bash
-CONDA_PYTHON="$(command -v python)"
-uv venv --system-site-packages --python "$CONDA_PYTHON" .venv
-UV_LINK_MODE=copy uv pip install --python .venv/bin/python --no-deps \
-  -r docs/requirements-conda-overlay.txt
-UV_LINK_MODE=copy uv pip install --python .venv/bin/python --no-deps -e .
-```
-
-依赖列表记录了本次向独立环境补充的包，基础包继承 conda。`--no-deps` 用于保持已验证的
-基础组合，不是通用的全新环境安装方案；例如 veRL 对 NumPy、SwanLab 对 protobuf 的
-声明约束与继承版本并不完全一致，运行验证通过不等于依赖解析完全无冲突。
-有本地 uv 缓存时，可在两个安装命令中加 `--offline`，本次验证就是如此安装的。
-`UV_LINK_MODE=copy` 避免后续补丁通过硬链接改到缓存或其他环境。
-
-### 2.2 应用 veRL 补丁
-
-动态采样补丁由仓库脚本校验版本和哈希；另两个补丁适配上述 SGLang 开发版本。
-
-```bash
-.venv/bin/python scripts/apply_verl_dynamic_sampling_patch.py
-SITE="$PWD/.venv/lib/python3.12/site-packages"
-patch --batch --forward -d "$SITE" -p1 \
-  -i "$PWD/patches/verl-0.8.0-sglang-gpu-import.patch"
-patch --batch --forward -d "$SITE" -p1 \
-  -i "$PWD/patches/verl-0.8.0-sglang-merged-rollout.patch"
-.venv/bin/python scripts/apply_verl_dynamic_sampling_patch.py --check
-```
-
-两个 SGLang 补丁分别取消 veRL 错误强制的 CPU 引擎导入、修正合并权重模式下误启用 adapter
-的问题。只对新安装、独立复制的 veRL 应用一次；重复执行 patch 可能报告已应用，不要强行重打。
-
-### 2.3 每个运行终端的环境变量
-
-每个新终端先激活 conda 并进入仓库，再执行：
+激活基础 conda 环境、进入仓库后执行：
 
 ```bash
 export PATH="$PWD/.venv/bin:$PATH"
@@ -111,56 +73,11 @@ export no_proxy="$NO_PROXY"
 export SHOPSIM_BASE_URL=http://127.0.0.1:5701
 ```
 
-`Python.h` 检查失败时先补齐匹配 Python 的开发头文件。目录存在或只有 `Imaging.h` 并不够。
-`C_INCLUDE_PATH` 帮助运行时编译器找到头文件，不会安装缺失文件。下载优先直连，网络确实
-不通时再按自己的网络环境配置代理；本地服务始终加入 NO_PROXY。
+本机路径通过环境变量传入。下载优先直连，网络确有需要时再配置代理。
 
-## 3. 安装并启动独立仿真环境
+## 3. ModelScope 下载
 
-从仓库内压缩商品库解压，核对哈希，再构建搜索索引：
-
-```bash
-SHOP_ROOT="$PWD/environments/ShopSimulator"
-SHOP_ENV_ROOT="$SHOP_ROOT/shop_env"
-uv venv --python 3.10 "$SHOP_ROOT/.venv-shopsim"
-UV_LINK_MODE=copy uv pip install --python "$SHOP_ROOT/.venv-shopsim/bin/python" \
-  -r "$SHOP_ENV_ROOT/requirements.txt"
-gzip -cd "$SHOP_ENV_ROOT/data/fine_items_eval_train_all.json.gz" \
-  > "$SHOP_ENV_ROOT/data/items_eval_train.json"
-printf '%s  %s\n' \
-  57b10950a0064d16c81535a1d764a75879a508d250dde8a2a1787c5e6045559f \
-  "$SHOP_ENV_ROOT/data/items_eval_train.json" | sha256sum -c -
-```
-
-**哈希校验成功后**继续构建索引：
-
-```bash
-(
-  cd "$SHOP_ENV_ROOT"
-  PYTHONPATH=. "$SHOP_ROOT/.venv-shopsim/bin/python" scripts/build_index.py
-)
-```
-
-终端 A 启动环境并保持运行：
-
-```bash
-SHOPSIM_PORT=5701 bash scripts/start_environment.sh
-```
-
-本文统一使用 5701，避开其他项目可能占用的默认 5700。另一个已配置环境变量的终端验证：
-
-```bash
-.venv/bin/python scripts/smoke_shop_env.py \
-  --base-url "$SHOPSIM_BASE_URL" --task-id 8187 \
-  --output-dir outputs/smoke/environment
-```
-
-本项目固定 ShopSimulator Environment v2.1、Reward v3、observation v2、tool schema v2。
-奖励来自仿真环境规则；默认流程不需要外部 LLM 裁判或 API Key。
-
-## 4. ModelScope 模型配置与下载
-
-编辑 `configs/model.yaml`：
+`configs/model.yaml` 默认选择：
 
 ```yaml
 source: modelscope
@@ -169,29 +86,47 @@ revision: master
 local_dir: models/Qwen3.5-2B
 ```
 
-文件原有 `serving` 配置保留；其中可配置服务名称、端口、上下文、TP 和显存比例。
+保留文件原有 `serving` 配置，它控制服务名称、端口、上下文、TP 和显存比例。
 
 ```bash
 .venv/bin/python scripts/download_model.py
-BASE_MODEL="$(.venv/bin/python scripts/download_model.py --local-only)"
+.venv/bin/python scripts/download_model.py --local-only
 ```
 
-完整权重约 4.55 GB。下载完成会生成 `model-source.json`，记录来源及文件 SHA256；
-`--local-only` 会核对文件完整性和来源标记，不隐式下载。不要把未登记的非空模型目录直接
-当作下载目标。`master` 是可变版本，严格跨机器复现应选择不可变 revision 并保存哈希清单。
+完整权重约 4.55 GB，下载后生成包含来源及 SHA256 的 `model-source.json`。
+`--local-only` 检查文件存在、分片完整性和来源标记，不重新计算所有哈希，也不下载。
+不要用未登记的非空目录作为下载目标。`master` 会移动，严格复现应选不可变 revision 并保存哈希清单。
 
-## 5. Base 推理与小规模评估
+## 4. 启动仿真与 Base 推理
 
-终端 B 启动推理服务：
+终端 A：
+
+```bash
+SHOPSIM_PORT=5701 bash scripts/start_environment.sh
+```
+
+本文统一使用 5701，其他终端的 `SHOPSIM_BASE_URL` 和 GRPO 的 `--env-url` 必须一致。
+环境契约为 Environment v2.1、Reward v3、observation v2、tool schema v2。
+
+终端 B：
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 bash scripts/serve_model.sh
 ```
 
-终端 C 检查模型服务并取固定评估集的前两条任务。这里只创建子集，不修改原数据：
+终端 C：
 
 ```bash
 curl --fail http://127.0.0.1:8000/v1/models
+.venv/bin/python scripts/smoke_shop_env.py --base-url "$SHOPSIM_BASE_URL" \
+  --task-id 8187 --output-dir outputs/smoke/environment
+```
+
+## 5. 两条任务的评估模板
+
+创建固定子集，不改原始评估集：
+
+```bash
 mkdir -p outputs/smoke
 head -n 2 data/evaluation/tasks.jsonl > outputs/smoke/tasks.jsonl
 EVAL_LABEL=base
@@ -200,173 +135,115 @@ mkdir -p "outputs/smoke/$EVAL_LABEL"
   --benchmark outputs/smoke/tasks.jsonl \
   --output "outputs/smoke/$EVAL_LABEL/trajectories.jsonl" \
   --summary "outputs/smoke/$EVAL_LABEL/summary.json" \
-  --base-url "$SHOPSIM_BASE_URL" \
-  --model shopping-agent --llm-base-url http://127.0.0.1:8000/v1 --api-key EMPTY
+  --base-url "$SHOPSIM_BASE_URL" --model shopping-agent \
+  --llm-base-url http://127.0.0.1:8000/v1 --api-key EMPTY
 .venv/bin/python scripts/build_eval_report.py --run-dir "outputs/smoke/$EVAL_LABEL"
 ```
 
-报告为 `outputs/smoke/base/report.html`。默认工具观察与上下文预算保持启用，SGLang
-`/v1/tokenize` 用于计数。`completed_tasks` 表示任务已处理，可能包含 error；检查
-`status_counts`、轨迹中的 `error` 和 `strict_success_rate` 才能判断执行及任务结果。
+报告为 `outputs/smoke/base/report.html`。SFT、GRPO 复用这段评估命令，修改标签即可。
+**标签不会切换服务器上的模型**，必须先启动对应模型。不同运行使用新标签。
 
-需要正式评估时，`bash scripts/baseline.sh` 或 `bash scripts/evaluate.sh 标签`
-会运行完整 Final-200 Clean，不属于单步可行性验证。
+上下文计数使用 SGLang `/v1/tokenize`。`completed_tasks` 可能包含 error；需要检查
+`status_counts`、轨迹 `error` 和严格成功率。done 率不是购买成功率。
 
-## 6. SFT：选择单步验证或完整训练
+## 6. SFT 与自动合并
 
-保持仿真环境运行，先在终端 B 用 Ctrl+C 停止独立模型服务，为训练释放 GPU。
+先在终端 B 用 Ctrl+C 结束独立模型服务，释放训练显卡。
 
-### 单步可行性验证
+### 单步验证
+
+验证子集来自 SFT validation，不使用评估任务参与训练或训练期验证。
 
 ```bash
-BASE_MODEL="$(.venv/bin/python scripts/download_model.py --local-only)"
-CUDA_VISIBLE_DEVICES=0 .venv/bin/python scripts/train_lora_sft.py \
-  --model "$BASE_MODEL" --train data/sft/train.jsonl \
-  --output outputs/smoke/sft-lora \
+mkdir -p outputs/smoke
+head -n 2 data/sft/validation.jsonl > outputs/smoke/sft-validation-2.jsonl
+CUDA_VISIBLE_DEVICES=0 \
+SFT_ADAPTER_DIR="$PWD/outputs/smoke/sft-lora" \
+SFT_MERGED_DIR="$PWD/outputs/smoke/sft-merged" \
+bash scripts/sft.sh \
   --max-steps 1 --warmup-ratio 0 --train-count 2 \
-  --gradient-accumulation-steps 1 --gradient-checkpointing \
-  --attention-implementation sdpa --logging-steps 1
-.venv/bin/python scripts/merge_lora_adapter.py \
-  --base-model "$BASE_MODEL" --adapter outputs/smoke/sft-lora \
-  --output outputs/smoke/sft-merged --bf16
+  --gradient-accumulation-steps 1 --logging-steps 1 \
+  --validation outputs/smoke/sft-validation-2.jsonl
 ```
 
-`warmup-ratio=0` 避免唯一一步学习率为零。可核对 LoRA B 非零：
+`warmup-ratio=0` 避免唯一一步学习率为零。脚本自动合并 LoRA，并将 tokenizer 的 EOS 加入
+generation config，保留原有 EOS。Qwen3.5 通常得到 `[248044,248046]`，避免原始生成越过对话结束符。
+无需手工编辑 EOS，变化记录在 `merge_manifest.json`。
 
 ```bash
-.venv/bin/python - <<'PY'
-from safetensors import safe_open
-with safe_open('outputs/smoke/sft-lora/adapter_model.safetensors', framework='pt') as f:
-    values = [float(f.get_tensor(k).abs().max()) for k in f.keys() if 'lora_B' in k]
-assert values and max(values) > 0
-print('LoRA B tensors:', len(values), 'max abs:', max(values))
-PY
+CUDA_VISIBLE_DEVICES=0 bash scripts/serve_model.sh outputs/smoke/sft-merged
 ```
 
-### 完整 SFT
+另一个终端按第 5 节评估，设置 `EVAL_LABEL=sft`。
 
-如果目标是正式训练，使用 800 条训练数据和 200 条验证数据：
+### 完整 SFT（需要正式实验时执行）
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 bash scripts/sft.sh
 ```
 
-这是完整训练，会自动合并到 `outputs/models/sft-merged`。它与上面的单步测试是二选一的
-执行规模，不要误以为单步已经充分训练。显存与时间取决于实际序列长度，LoRA 参数少也仍需反向计算。
+使用 800 条训练数据、200 条验证数据，自动合并到 `outputs/models/sft-merged`。
+可以用 `BASE_MODEL` 显式指定本地模型，`MODEL_CONFIG` 指定另一配置。
+输出用 `SFT_ADAPTER_DIR` / `SFT_MERGED_DIR` 配置，不要单独传入训练器的 `--output`。
 
-## 7. 对齐 SFT 的结束 token
+## 7. GRPO 单步验证
 
-Qwen3.5 合并产物可能只将 248044（`<|endoftext|>`）记为 EOS，而对话结束 token 为
-248046（`<|im_end|>`）。在 SGLang 原始生成接口中，这可能导致生成跨越对话边界。
-对自己新合并的模型执行以下操作，保留原 EOS 并加入 tokenizer EOS：
-
-```bash
-# 单步模型；完整训练时改为 outputs/models/sft-merged
-SFT_MODEL="$PWD/outputs/smoke/sft-merged"
-.venv/bin/python - "$SFT_MODEL" <<'PY'
-import json, sys
-from pathlib import Path
-from transformers import AutoTokenizer
-model = Path(sys.argv[1])
-path = model / 'generation_config.json'
-config = json.loads(path.read_text())
-old = config.get('eos_token_id')
-ids = old if isinstance(old, list) else [old]
-eos = AutoTokenizer.from_pretrained(model, local_files_only=True).eos_token_id
-config['eos_token_id'] = sorted({i for i in [*ids, eos] if i is not None})
-path.write_text(json.dumps(config, indent=2) + '\n')
-print('EOS:', old, '->', config['eos_token_id'])
-PY
-```
-
-此步骤修改选定模型的 generation config。若复用既有 checkpoint，先建立独立副本或
-独立配置目录，保留源文件。SFT 重载评估时用 `serve_model.sh "$SFT_MODEL"` 启动，
-然后复用第 5 节评估命令，将 `EVAL_LABEL` 设为 `sft`。
-
-## 8. GRPO 单步验证
-
-先停止独立 SGLang 推理服务。veRL 会启动自己的 SGLang rollout，不连接 8000 上的模型服务。
-仿真环境继续运行。
-
-**使用充分训练的 SFT 模型作为起点。** 若只训练过一步 SFT，允许尝试，但可能因非法动作、
-未完成轨迹等问题无法组成有效奖励组。本次就是这种情况；不要关闭有效性筛选来伪造通过。
-已有 SFT checkpoint 不包含在 Git 仓库中，需要自行训练或明确提供来源。
+停止独立模型服务，保持仿真运行。veRL 自己启动 SGLang rollout，不连接 8000 上的服务。
+**GRPO 应从充分训练的 SFT 模型开始**；只训练一步 SFT 可能因无效轨迹过多而无法更新。
+完整 SFT checkpoint 不随 Git 仓库提供，需自行训练或明确提供来源。
 
 ```bash
 SFT_MODEL="$PWD/outputs/models/sft-merged"
 GRPO_OUTPUT="$PWD/outputs/smoke/grpo"
-export CUDA_VISIBLE_DEVICES=0,1
-export RAY_EXPERIMENTAL_NOSET_CUDA_VISIBLE_DEVICES=1
-export NCCL_P2P_DISABLE=1
-```
-
-先完成第 7 节的 EOS 对齐。输出目录必须不存在或为空，不要覆盖已有运行。
-无 NVLink 不等于 P2P 一定不可用；本次设置 `NCCL_P2P_DISABLE=1` 是已验证的机器环境选择。
-
-当前 `scripts/check_grpo_runtime.py` 默认版本仍对应旧锁文件，所以此 conda 配置暂时不能
-直接用 `bash scripts/grpo.sh` 通过预检查。以下命令复用原参数构建及所有预检查，只显式
-设置本次验证的三个依赖版本。它不会写入仓库的 Python 文件：
-
-```bash
-.venv/bin/python - \
+CUDA_VISIBLE_DEVICES=0,1 bash scripts/grpo.sh \
   --model "$SFT_MODEL" --output "$GRPO_OUTPUT" --env-url "$SHOPSIM_BASE_URL" -- \
   trainer.total_training_steps=1 trainer.save_freq=1 \
   trainer.test_freq=-1 trainer.val_before_train=false \
   trainer.n_gpus_per_node=2 \
   actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0 \
   actor_rollout_ref.rollout.agent.num_workers=2 \
-  shopping_dynamic_sampling.max_consecutive_skipped_updates=1 <<'PY'
-import json, os, subprocess, sys
-from pathlib import Path
-from scripts.train_grpo import parse_args, build_command
-from scripts import check_grpo_runtime as check
-args = parse_args()
-command, environment = build_command(args)
-print(json.dumps(command, indent=2))
-if args.dry_run:
-    raise SystemExit(0)
-Path(environment['GRPO_OUTPUT_DIR']).mkdir(parents=True, exist_ok=True)
-os.environ.update(environment)
-check.EXPECTED_VERSIONS.update(
-    sglang='0.5.15.post2.dev468', transformers='5.12.1', numpy='2.3.5'
-)
-sys.argv = ['check_grpo_runtime.py', *command[5:]]
-check.main()
-raise SystemExit(subprocess.call(command, env=environment))
-PY
+  shopping_dynamic_sampling.max_consecutive_skipped_updates=1
 ```
 
-确认日志出现 `training/optimizer_updated:1`，并生成 `global_step_1/actor`。
-`SKIPPED` 或只出现 AgentLoopWorker 输出不表示更新成功。单步验证关闭训练前验证并取消
-学习率 warmup；一次无效更新尝试就停止，避免长时间空采样。失败后换新的输出目录再试。
+版本预检查直接读取统一配置，不需要内嵌 Python 修改检查器。`grpo.sh` 设置显式 rank 设备选择、
+Python 头文件和 NCCL P2P fallback；P2P 已验证可用的机器可设置 `NCCL_P2P_DISABLE=0`。
 
-完整训练仍使用上面同一个 conda profile 调用方式，将 `--` 后的单步覆盖参数去掉，
-并将输出目录改为新的正式目录，即恢复 `configs/grpo.yaml` 的默认训练配置：500 步、
-每 10 步保存、每 50 步验证、训练前验证。完整 SGLang 训练尚未由本次测试验证。
+确认日志 `training/optimizer_updated:1` 与 `global_step_1/actor`；`SKIPPED` 或服务启动不表示更新成功。
+单步验证关闭初始验证与 warmup，一次空更新尝试就停止。换新输出目录重试，不覆盖已有 checkpoint，
+不承诺自动续训。
 
-## 9. 导出、合并 LoRA、最终评估
+旧版 SFT 合并产物可能未对齐 EOS。复用时先检查配置，必要时由原始模型和 adapter 重新运行
+`merge_lora_adapter.py`，生成新的独立产物，保留原 checkpoint。
 
-从真实存在的 checkpoint 导出。单步测试使用 step 1，完整训练则改为实际保存的步数。
+### 完整 GRPO
 
 ```bash
-CHECKPOINT="$GRPO_OUTPUT/global_step_1/actor"
-test -d "$CHECKPOINT/huggingface"
-bash scripts/export_grpo.sh "$CHECKPOINT" outputs/smoke/grpo-export
-.venv/bin/python scripts/merge_lora_adapter.py \
-  --base-model outputs/smoke/grpo-export \
-  --adapter outputs/smoke/grpo-export/lora_adapter \
-  --output outputs/smoke/grpo-final --bf16
+CUDA_VISIBLE_DEVICES=0,1 bash scripts/grpo.sh \
+  --model "$SFT_MODEL" --output outputs/models/grpo --env-url "$SHOPSIM_BASE_URL"
+```
+
+使用 `configs/grpo.yaml` 默认值：500 步、每 10 步保存、每 50 步验证、开始前验证。
+完整训练效果仍需单独实验。
+
+## 8. 自动导出与最终推理
+
+```bash
+bash scripts/export_grpo.sh \
+  "$GRPO_OUTPUT/global_step_1/actor" outputs/smoke/grpo-final
 CUDA_VISIBLE_DEVICES=0 bash scripts/serve_model.sh outputs/smoke/grpo-final
 ```
 
-本次 veRL 导出分别保存模型和 `lora_adapter`，**需要再合并 LoRA 后才得到最终推理模型**，
-不能只凭导出目录名字含有 merged 就认为适配器已合并。另一个终端复用第 5 节评估命令，
-将 `EVAL_LABEL` 设为 `grpo`，生成 `outputs/smoke/grpo/report.html`。
+导出入口自动执行 **FSDP 分片导出 → 检测 adapter → 合并 LoRA → 发布最终目录**。
+不要再对最终模型重复合并同一 adapter。输入必须含 `actor/huggingface/config.json`，输出必须新建或为空。
+失败会保留临时目录用于定位，不把半成品放进目标目录；来源记录在 `export_manifest.json`。
 
-正式对比需分别启动 Base、完整 SFT、GRPO 模型，并保持相同后端、任务集和评估参数：
+另一个终端按第 5 节评估，设置 `EVAL_LABEL=grpo`。完整训练时把 step 1 改成实际保存的步数。
+
+## 9. 正式评估与测试
+
+Base、SFT、GRPO 对比必须使用相同后端、任务集和参数。分别启动对应模型后执行：
 
 ```bash
-# 每次先启动对应模型；标签不会替你切换正在服务的模型。
 bash scripts/evaluate.sh base
 # 换成完整 SFT 模型服务后：
 bash scripts/evaluate.sh sft
@@ -374,34 +251,33 @@ bash scripts/evaluate.sh sft
 bash scripts/evaluate.sh grpo
 ```
 
-这些命令各运行完整 200 题，报告位于 `outputs/evaluation/<标签>/report.html`。
-严格成功要求完整的 `gold_purchase` 终态且 `reward_valid=true`，不能把 done 率当作成功率。
-额外的 LLM Judge 配置见 [docs/evaluation.md](docs/evaluation.md)，不是默认奖励来源。
+每条命令运行完整 Final-200 Clean，报告在 `outputs/evaluation/<标签>/report.html`。
+严格成功要求 `gold_purchase` 终态且 `reward_valid=true`。默认奖励是环境规则，不需要外部 LLM 裁判；
+额外 Judge 见 [docs/evaluation.md](docs/evaluation.md)。
 
-## 10. 检查与常见问题
+测试需要 pytest；基础环境没有时可先执行 `uv pip install --python .venv/bin/python pytest`。
 
 ```bash
 .venv/bin/python -m pytest \
+  tests/test_runtime_installation.py tests/test_export_grpo_cli.py \
+  tests/test_merge_lora_adapter.py tests/test_grpo_dynamic_sampling_config.py \
   tests/test_model_source.py tests/test_sglang_token_counter.py \
   tests/test_context_window.py tests/test_environment_manifest.py \
   tests/test_evaluation_dataset.py -q
-.venv/bin/python scripts/evaluate_configured.py baseline --dry-run
 ```
 
-测试需要环境中已有 pytest。运行前后用 `nvidia-smi` 检查 GPU；只停止自己启动的服务。
+## 10. 常见问题
 
-| 现象 | 检查方法 / 原因 |
+| 现象 | 检查方向 |
 |---|---|
-| 克隆后 `.venv` 无法创建 | 新版已取消跟踪虚拟环境链接；旧克隆先确认是不是失效符号链接，勿删除真实环境 |
-| `Python.h` 找不到 | 核对实际解释器及第 2.3 节头文件路径，conda 激活不保证脚本使用的 Python 正确 |
-| CPU KV-cache 内核缺失 | 核对 GPU 导入补丁是否应用到当前独立 veRL |
-| `get_hidden_dim` / adapter 请求错误 | 核对 merged-rollout 补丁、SGLang 版本及 `lora.merge=true` 配置 |
-| GRPO 版本预检查失败 | 旧锁文件与本文 conda profile 不同；使用第 8 节明确版本的调用，不关闭整个检查 |
-| `HFValidationError: Repo id...` | 优先确认本地 checkpoint 路径与 `actor/huggingface/config.json` 真正存在 |
-| 输出目录不是空目录 | 换新目录；不承诺自动续训，也不要直接删除可能有用的 checkpoint |
-| 单步训练完成但参数没变 | 检查 warmup 和实际学习率，核对 LoRA 权重及 optimizer_updated |
-| `ContextBudgetError` | 轨迹已超过输入预算；属于任务失败，不能把放宽预算后的结果混入原协议对比 |
-| 仿真没有可用槽位 | 检查并发任务和中断后的 lease，仅在确认无其他任务时处理残留槽位 |
+| setup 版本不匹配 | 检查 MAIN_PYTHON 和 runtime.json，不关闭检查来混用环境 |
+| Python.h 缺失 | 查看实际解释器 include 路径，仅有目录或 Imaging.h 不够 |
+| CPU 内核 / adapter 错误 | 重新运行 setup；补丁会校验哈希，未知源文件会拒绝修改 |
+| checkpoint 路径错误 | 使用实际运行目录的 global_step_*/actor，各仓库 outputs 不会自动共享 |
+| 输出非空 | 换新目录，不随意删除已有结果 |
+| GRPO 无更新 | 检查有效组及 optimizer_updated，单步 SFT 能力可能不足 |
+| ContextBudgetError | 轨迹超出输入预算，修改预算后的结果不能混入原协议对比 |
+| 仿真无可用槽位 | 检查并发及中断残留 lease，确认无其他任务后再处理 |
 
-代码修改、模型和数据来源需保留说明；模型权重、训练输出、虚拟环境和凭据不提交到 Git。
-早期验证材料见 [docs/validation.md](docs/validation.md)，当前可执行流程以本文为准。
+运行前后用 `nvidia-smi` 检查 GPU，只停止自己启动的服务。模型权重、输出、虚拟环境和凭据
+不提交到 Git。早期文档保留用于追溯，当前安装与运行命令以本文为准。

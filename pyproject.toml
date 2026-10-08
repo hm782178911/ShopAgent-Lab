@@ -16,31 +16,11 @@ dependencies = [
 
 [project.optional-dependencies]
 eval = []
-sft = [
-  "torch>=2.5",
-  "transformers==5.6.0",
-  "peft>=0.15,<1",
-  "accelerate>=1,<2",
-  "torchvision",
-  "pillow",
-  "swanlab>=0.8,<1",
-]
+# CUDA training packages are provided by scripts/setup.sh and configs/runtime.json.
+# They inherit the validated SGLang environment rather than resolving a second stack.
 sft-accelerated = [
   "bitsandbytes>=0.45,<1",
   "liger-kernel>=0.6,<1",
-]
-grpo = [
-  "verl==0.8.0",
-  "sglang==0.5.12",
-  "flash-attn-4>=4.0.0b9",
-  "torch==2.11.0",
-  "torchvision==0.26.0",
-  "torchaudio==2.11.0",
-  "transformers==5.6.0",
-  "ray[default]==2.56.1",
-  "tensordict==0.10.0",
-  "numpy==2.2.6",
-  "swanlab==0.9.1",
 ]
 dev = [
   "build>=1.2,<2",
@@ -60,9 +40,6 @@ where = ["src"]
 
 [tool.uv]
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
-override-dependencies = [
-  "numpy==2.2.6",
-]
 
 [tool.ruff]
 line-length = 100

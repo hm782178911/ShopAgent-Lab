@@ -1,0 +1,16 @@
+{
+  "python": "3.12",
+  "base_packages": ["sglang", "torch", "transformers", "numpy", "modelscope"],
+  "packages": {
+    "sglang": "0.5.15.post2.dev468+g85ac56c82",
+    "torch": "2.11.0",
+    "transformers": "5.12.1",
+    "numpy": "2.3.5",
+    "modelscope": "1.38.1",
+    "verl": "0.8.0",
+    "peft": "0.20.0",
+    "ray": "2.56.1",
+    "tensordict": "0.10.0",
+    "swanlab": "0.9.1"
+  }
+}

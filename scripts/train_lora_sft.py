@@ -136,7 +136,7 @@ def _training_dependencies():
             TrainingArguments,
         )
     except ImportError as exc:
-        raise SystemExit("缺少训练依赖。请执行：uv sync --extra sft") from exc
+        raise SystemExit("缺少训练依赖。请先执行：bash scripts/setup.sh") from exc
     return (
         torch,
         LoraConfig,
@@ -193,7 +193,7 @@ def _validate_optional_training_dependencies(args):
         except ImportError as exc:
             raise SystemExit(
                 "--qlora 需要 bitsandbytes；请执行："
-                "uv sync --extra sft --extra sft-accelerated"
+                "uv pip install --python .venv/bin/python '.[sft-accelerated]'"
             ) from exc
     if args.liger_kernel:
         try:
@@ -201,7 +201,7 @@ def _validate_optional_training_dependencies(args):
         except ImportError as exc:
             raise SystemExit(
                 "--liger-kernel 需要 liger-kernel；请执行："
-                "uv sync --extra sft --extra sft-accelerated"
+                "uv pip install --python .venv/bin/python '.[sft-accelerated]'"
             ) from exc
 
 
@@ -237,7 +237,7 @@ def _swanlab_config(args):
     try:
         import swanlab  # noqa: F401 - 仅验证可选依赖存在。
     except ImportError as exc:
-        raise SystemExit("缺少 SwanLab。请执行：uv sync --extra sft") from exc
+        raise SystemExit("缺少 SwanLab。请先执行：bash scripts/setup.sh") from exc
 
     run_name = args.swanlab_run_name or (
         f"lora-r{args.lora_r}-bs{args.per_device_train_batch_size}"

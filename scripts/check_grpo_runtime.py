@@ -11,16 +11,9 @@ from importlib.metadata import PackageNotFoundError, distribution, version
 from pathlib import Path
 
 
-EXPECTED_VERSIONS = {
-    "verl": "0.8.0",
-    "sglang": "0.5.12",
-    "torch": "2.11.0",
-    "transformers": "5.6.0",
-    "ray": "2.56.1",
-    "tensordict": "0.10.0",
-    "numpy": "2.2.6",
-    "swanlab": "0.9.1",
-}
+from shopping_grpo.runtime import load_profile, validate_versions
+
+EXPECTED_VERSIONS = load_profile()["packages"]
 PATCH_MARKER = "SHOPPING_GRPO_DYNAMIC_SAMPLING_PATCH_V3"
 MAX_SAFE_RESPONSE_LENGTH = 20480
 MAX_SAFE_SEQUENCE_LENGTH = 24576
@@ -140,9 +133,9 @@ def compose_runtime_config(overrides):
 
 
 def validate_transformers_revision():
-    # Release version checked in EXPECTED_VERSIONS; complete artifacts locked in uv.lock.
+    # Setup and preflight use the same explicit conda runtime profile.
     if version("transformers") != EXPECTED_VERSIONS["transformers"]:
-        raise SystemExit("Transformers release differs from the tested dependency lock")
+        raise SystemExit("Transformers release differs from configs/runtime.json")
 
 
 def validate_dynamic_sampling(config, verl_source: Path, installed):
@@ -413,17 +406,18 @@ def main():
     if sys.version_info[:2] != (3, 12):
         raise SystemExit(f"incompatible Python: expected 3.12, got {sys.version.split()[0]}")
 
-    installed = {}
-    for package, expected in EXPECTED_VERSIONS.items():
-        try:
-            installed[package] = version(package)
-        except PackageNotFoundError as exc:
-            raise SystemExit(f"missing GRPO dependency: {package}=={expected}") from exc
-        if installed[package].split("+", 1)[0] != expected:
-            raise SystemExit(
-                f"incompatible GRPO dependency: expected {package}=={expected}, got {installed[package]}"
-            )
+    try:
+        installed = validate_versions(EXPECTED_VERSIONS)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
     validate_transformers_revision()
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from scripts.apply_verl_sglang_patches import verify_installation
+    try:
+        verify_installation(check_only=True)
+    except (RuntimeError, OSError) as exc:
+        raise SystemExit(str(exc)) from exc
 
     try:
         import torch

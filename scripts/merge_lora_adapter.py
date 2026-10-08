@@ -8,6 +8,12 @@ import json
 from pathlib import Path
 
 
+def merge_eos_token_ids(existing, tokenizer_eos):
+    ids = existing if isinstance(existing, list) else [existing]
+    combined = sorted({value for value in [*ids, tokenizer_eos] if value is not None})
+    return combined or None
+
+
 def choose_model_class(config, causal_model_class, multimodal_model_class):
     """Qwen3.5 走官方多模态类；其他 CausalLM 保持普通路径。"""
     return multimodal_model_class if str(getattr(config, "model_type", "")).startswith("qwen3_5") else causal_model_class
@@ -42,7 +48,7 @@ def main():
         from peft import PeftModel
         from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForMultimodalLM, AutoProcessor
     except ImportError as exc:
-        raise SystemExit("缺少合并依赖；请执行：uv sync --extra sft") from exc
+        raise SystemExit("缺少合并依赖；请先执行：bash scripts/setup.sh") from exc
 
     config = AutoConfig.from_pretrained(args.base_model, trust_remote_code=True)
     model_class = choose_model_class(config, AutoModelForCausalLM, AutoModelForMultimodalLM)
@@ -50,10 +56,17 @@ def main():
     print(f"加载 base={args.base_model} model_type={config.model_type} dtype={dtype}")
     base = model_class.from_pretrained(args.base_model, torch_dtype=dtype, trust_remote_code=True)
     merged = PeftModel.from_pretrained(base, str(args.adapter)).merge_and_unload()
+    processor = AutoProcessor.from_pretrained(args.base_model, trust_remote_code=True)
+    tokenizer = getattr(processor, "tokenizer", processor)
+    old_eos = merged.generation_config.eos_token_id
+    merged.generation_config.eos_token_id = merge_eos_token_ids(
+        old_eos, getattr(tokenizer, "eos_token_id", None)
+    )
     args.output.mkdir(parents=True, exist_ok=True)
     merged.save_pretrained(str(args.output), safe_serialization=True, max_shard_size=args.max_shard_size)
-    AutoProcessor.from_pretrained(args.base_model, trust_remote_code=True).save_pretrained(str(args.output))
+    processor.save_pretrained(str(args.output))
     manifest = build_merge_manifest(args.base_model, args.adapter, args.output, config.model_type)
+    manifest["eos_token_id"] = {"before": old_eos, "after": merged.generation_config.eos_token_id}
     (args.output / "merge_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

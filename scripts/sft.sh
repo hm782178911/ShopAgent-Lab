@@ -7,6 +7,12 @@ ADAPTER_DIR="${SFT_ADAPTER_DIR:-$ROOT/outputs/models/sft-lora}"
 MERGED_DIR="${SFT_MERGED_DIR:-$ROOT/outputs/models/sft-merged}"
 
 cd "$ROOT"
+for directory in "$ADAPTER_DIR" "$MERGED_DIR"; do
+  if [[ -L "$directory" ]] || { [[ -e "$directory" ]] && { [[ ! -d "$directory" ]] || [[ -n "$(find "$directory" -mindepth 1 -maxdepth 1 -print -quit)" ]]; }; }; then
+    echo "SFT output must be new or empty: $directory" >&2
+    exit 1
+  fi
+done
 "$ROOT/.venv/bin/python" scripts/train_lora_sft.py \
   --model "$BASE_MODEL" \
   --train data/sft/train.jsonl \
@@ -14,7 +20,8 @@ cd "$ROOT"
   --output "$ADAPTER_DIR" \
   --dtype auto \
   --gradient-checkpointing \
-  --attention-implementation sdpa
+  --attention-implementation sdpa \
+  "$@"
 
 exec "$ROOT/.venv/bin/python" scripts/merge_lora_adapter.py \
   --base-model "$BASE_MODEL" \
