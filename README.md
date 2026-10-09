@@ -6,6 +6,29 @@
 复现并进行 SGLang 适配，沿用原作者数据、ShopSimulator 和 Reward v3。
 来源与授权状态见 [SOURCES.md](SOURCES.md)。上游历史成绩不代表本实现的效果。
 
+## 实验结果
+
+基于 **Qwen3.5-2B**，沿用原作者训练数据，完成 3 个 epoch SFT 和 500 步 SGLang GRPO。
+六组评估均使用同一组固定 **200 个任务**、Reward v3 和相同评估协议；每个模型的双后端评估使用相同权重。
+严格成功指 `gold_purchase` 且 `reward_valid=true`；失败及错误任务计入分母。
+
+| 模型阶段 | 推理后端 | 严格成功率 | 平均奖励 | 平均步数 | 评估耗时（分钟） |
+|---|---|---:|---:|---:|---:|
+| Base | SGLang | 0.5%（1/200） | -0.2364 | 6.79 | 9.92 |
+| Base | vLLM | 1.0%（2/200） | -0.1486 | 5.55 | 12.69 |
+| SFT | SGLang | 65.0%（130/200） | 0.5637 | 9.40 | 5.81 |
+| SFT | vLLM | 69.5%（139/200） | 0.6128 | 9.24 | 7.05 |
+| GRPO · step 500 | SGLang | 67.0%（134/200） | 0.5728 | 10.40 | 6.35 |
+| GRPO · step 500 | vLLM | 71.0%（142/200） | 0.6137 | 10.97 | 8.97 |
+
+- **后训练效果**：SGLang 下成功率从 **0.5% → 65.0% → 67.0%**，GRPO 比 SFT 提升 **2.0 个百分点**。
+- **同权重推理对比**：最终 GRPO 模型在 vLLM 下为 **71.0%**，比 SGLang 多成功 8 个任务。单次 200 题结果不能证明框架的普遍优劣。
+- **训练与耗时口径**：GRPO 使用 SGLang 采样；vLLM 仅用于推理对比。500 步中累计跳过 51 次更新。评估耗时包含仿真和客户端开销，并非纯推理吞吐基准。
+
+实验使用两张 96 GB GPU；SFT 约 2 小时 1 分钟，GRPO 约 7 小时 23 分钟。
+SGLang 0.5.16 使用独立环境，vLLM 0.25.1 使用已有独立安装，两者服务配置与软件栈存在差异。
+完整协议、结果局限与校验记录见 [详细报告](docs/reproduction-results.md) 和 [指标 JSON](docs/results/sglang-reproduction.json)。
+
 ## 1. 环境与复现范围
 
 工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。
@@ -38,10 +61,7 @@ sudo apt-get install -y git curl ca-certificates build-essential patch gzip
 
 单步验证用于检查工程流程，不代表训练效果。单步 SFT 不保证已学会购物，GRPO 的有效更新验证需要有能力的完整 SFT checkpoint。
 已验证首次/重复安装、非零单步 SFT、一次双卡 GRPO 更新、导出和三种模型的两任务推理；范围详见 [验证说明](docs/validation.md)。
-已完成独立 SGLang 环境的完整 SFT、500 步 GRPO、模型导出和固定 200 题评估。
-SGLang 下 Base / SFT / GRPO 严格成功率为 **0.5% / 65.0% / 67.0%**；
-相同权重的 vLLM 对比为 **1.0% / 69.5% / 71.0%**。
-完整协议、耗时、局限和机器可读结果见 [复现结果](docs/reproduction-results.md)。
+完整训练与正式评估已完成，成绩见上方实验结果。
 
 ## 2. 克隆与安装
 
