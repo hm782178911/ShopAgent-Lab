@@ -1,0 +1,270 @@
+{
+  "source_commit": "62a9938567a59d11fa048d1f6a15dee0ddc93c5e",
+  "grpo_training_backend": "sglang",
+  "grpo_final_step": 500,
+  "grpo_skipped_updates": 51,
+  "evidence_archive_sha256": "189bc1f1e2e471d9c7d559b1faa0e08a32b4c805716bbb7297b5a45c3dcaf5d3",
+  "runs": [
+    {
+      "model": "base",
+      "backend": "sglang",
+      "completed_tasks": 200,
+      "strict_successes": 1,
+      "strict_success_rate": 0.005,
+      "mean_final_reward": -0.2363581730769231,
+      "average_steps": 6.785,
+      "evaluation_seconds": 595.1809370517731,
+      "status_counts": {
+        "assistant_final": 4,
+        "done": 78,
+        "error": 6,
+        "invalid_action_limit": 112
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "ed1c1723241f23f7f4e23430759cbd7dcfb4103cbdfe052bfe7626b57c2615b4",
+        "configuration.json": "2d4464e2ead06bc9bc718c781309ad1e7baded626d66e8dcdc8b469ba185faf0",
+        "merges.txt": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+        "model-source.json": "2efa91a5bbfb8b34b8658c4bd749b6be83ce3344670db2955ff64cb79dcf9482",
+        "model.safetensors-00001-of-00001.safetensors": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1",
+        "model.safetensors.index.json": "aca8afed9da75b0f050b408d270766fd77627f1af401e240f61c3b47d0db02f9",
+        "preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+        "tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+        "tokenizer_config.json": "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+        "video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+        "vocab.json": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    },
+    {
+      "model": "base",
+      "backend": "vllm",
+      "completed_tasks": 200,
+      "strict_successes": 2,
+      "strict_success_rate": 0.01,
+      "mean_final_reward": -0.14855000000000002,
+      "average_steps": 5.55,
+      "evaluation_seconds": 761.3802058696747,
+      "status_counts": {
+        "assistant_final": 8,
+        "done": 52,
+        "invalid_action_limit": 140
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "ed1c1723241f23f7f4e23430759cbd7dcfb4103cbdfe052bfe7626b57c2615b4",
+        "configuration.json": "2d4464e2ead06bc9bc718c781309ad1e7baded626d66e8dcdc8b469ba185faf0",
+        "merges.txt": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+        "model-source.json": "2efa91a5bbfb8b34b8658c4bd749b6be83ce3344670db2955ff64cb79dcf9482",
+        "model.safetensors-00001-of-00001.safetensors": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1",
+        "model.safetensors.index.json": "aca8afed9da75b0f050b408d270766fd77627f1af401e240f61c3b47d0db02f9",
+        "preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+        "tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+        "tokenizer_config.json": "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+        "video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+        "vocab.json": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    },
+    {
+      "model": "sft",
+      "backend": "sglang",
+      "completed_tasks": 200,
+      "strict_successes": 130,
+      "strict_success_rate": 0.65,
+      "mean_final_reward": 0.5636783987713675,
+      "average_steps": 9.405,
+      "evaluation_seconds": 348.718474149704,
+      "status_counts": {
+        "done": 192,
+        "error": 6,
+        "invalid_action_limit": 2
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "2dea34a57cd73661bc9725f50b2353ac708980cd5869859e40961823966ac340",
+        "generation_config.json": "f7c35afc4eda09ee1a9cbe029b030dc9875ab3c201401c48044448e8153acea2",
+        "merge_manifest.json": "ee9fc0ba371407914d2360ee8b28d7e7855a36c0b71ebec14fbc23d154bf6624",
+        "model.safetensors": "82a3d617eacfb2bbe4e6c5701849b78ed7184ddcb8fe5ed1efbed820685c0077",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "792fa3f0cb88b111e54ef3134c873531008c4df471d108da17903426e308aa7b"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    },
+    {
+      "model": "sft",
+      "backend": "vllm",
+      "completed_tasks": 200,
+      "strict_successes": 139,
+      "strict_success_rate": 0.695,
+      "mean_final_reward": 0.6128145966880342,
+      "average_steps": 9.245,
+      "evaluation_seconds": 423.21066880226135,
+      "status_counts": {
+        "done": 198,
+        "error": 1,
+        "invalid_action_limit": 1
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "2dea34a57cd73661bc9725f50b2353ac708980cd5869859e40961823966ac340",
+        "generation_config.json": "f7c35afc4eda09ee1a9cbe029b030dc9875ab3c201401c48044448e8153acea2",
+        "merge_manifest.json": "ee9fc0ba371407914d2360ee8b28d7e7855a36c0b71ebec14fbc23d154bf6624",
+        "model.safetensors": "82a3d617eacfb2bbe4e6c5701849b78ed7184ddcb8fe5ed1efbed820685c0077",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "792fa3f0cb88b111e54ef3134c873531008c4df471d108da17903426e308aa7b"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    },
+    {
+      "model": "grpo500",
+      "backend": "sglang",
+      "completed_tasks": 200,
+      "strict_successes": 134,
+      "strict_success_rate": 0.67,
+      "mean_final_reward": 0.5728414262820514,
+      "average_steps": 10.4,
+      "evaluation_seconds": 380.70899295806885,
+      "status_counts": {
+        "done": 191,
+        "error": 7,
+        "invalid_action_limit": 2
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "d2de0e67a6c56177afd520708f425392ecdfec94e353d57ef5e4314bef7db7b8",
+        "export_manifest.json": "7dce569b29ff6cb925635df7f188d480ec015e8efa3dcc4946fc31584c90bdc8",
+        "generation_config.json": "f7c35afc4eda09ee1a9cbe029b030dc9875ab3c201401c48044448e8153acea2",
+        "merge_manifest.json": "b5d0a91ec8f20fa2e3ada160e95b90354c7cc18b544dce5ef226ecb142a04860",
+        "model.safetensors": "45eab43ac04ddaba39bd3058258c0d772150b22db01cb912eaeb6d3bb96d75ce",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "792fa3f0cb88b111e54ef3134c873531008c4df471d108da17903426e308aa7b"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    },
+    {
+      "model": "grpo500",
+      "backend": "vllm",
+      "completed_tasks": 200,
+      "strict_successes": 142,
+      "strict_success_rate": 0.71,
+      "mean_final_reward": 0.6136942708333334,
+      "average_steps": 10.97,
+      "evaluation_seconds": 538.4500794410706,
+      "status_counts": {
+        "done": 197,
+        "error": 2,
+        "invalid_action_limit": 1
+      },
+      "benchmark_sha256": "d99112a20ef47534c27a32e4b38229bf048dcc6b06fef2e3e919aac3093662f5",
+      "model_files_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "d2de0e67a6c56177afd520708f425392ecdfec94e353d57ef5e4314bef7db7b8",
+        "export_manifest.json": "7dce569b29ff6cb925635df7f188d480ec015e8efa3dcc4946fc31584c90bdc8",
+        "generation_config.json": "f7c35afc4eda09ee1a9cbe029b030dc9875ab3c201401c48044448e8153acea2",
+        "merge_manifest.json": "b5d0a91ec8f20fa2e3ada160e95b90354c7cc18b544dce5ef226ecb142a04860",
+        "model.safetensors": "45eab43ac04ddaba39bd3058258c0d772150b22db01cb912eaeb6d3bb96d75ce",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "792fa3f0cb88b111e54ef3134c873531008c4df471d108da17903426e308aa7b"
+      },
+      "protocol": {
+        "model": "shopping-agent",
+        "reward_contract": "shopsimulator-reward-v3",
+        "max_steps": 35,
+        "max_tokens": 512,
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "context_window": 24576,
+        "context_safety_margin": 512,
+        "context_compaction": false,
+        "observation_token_budget": 1536,
+        "observation_detail_token_budget": 4096,
+        "observation_generic_token_budget": 768,
+        "observation_search_top_k": 20
+      }
+    }
+  ],
+  "serving_versions": {
+    "sglang": "0.5.16",
+    "vllm": "0.25.1"
+  }
+}

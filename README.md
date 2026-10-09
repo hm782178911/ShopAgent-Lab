@@ -38,7 +38,10 @@ sudo apt-get install -y git curl ca-certificates build-essential patch gzip
 
 单步验证用于检查工程流程，不代表训练效果。单步 SFT 不保证已学会购物，GRPO 的有效更新验证需要有能力的完整 SFT checkpoint。
 已验证首次/重复安装、非零单步 SFT、一次双卡 GRPO 更新、导出和三种模型的两任务推理；范围详见 [验证说明](docs/validation.md)。
-本仓库尚未完成这套独立 SGLang 环境下的全量训练和正式 200 题对比。
+已完成独立 SGLang 环境的完整 SFT、500 步 GRPO、模型导出和固定 200 题评估。
+SGLang 下 Base / SFT / GRPO 严格成功率为 **0.5% / 65.0% / 67.0%**；
+相同权重的 vLLM 对比为 **1.0% / 69.5% / 71.0%**。
+完整协议、耗时、局限和机器可读结果见 [复现结果](docs/reproduction-results.md)。
 
 ## 2. 克隆与安装
 
