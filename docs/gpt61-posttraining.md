@@ -10,6 +10,46 @@ Before promotion, the collector checked that task IDs and instruction hashes did
 
 The raw Codex events and machine-specific simulator logs are intentionally kept outside the repository. The repository contains only the final trainable JSONL files, their metadata, and the aggregate result summary.
 
+### Collection commands
+
+The durable campaign command runs the authenticated Codex CLI jobs in 50-task batches. Run it on the collection machine after configuring the local proxy and project environment:
+
+```bash
+cd /path/to/dataset/gpt_6_1
+source ~/env_proxy.sh
+
+nohup /path/to/project/.venv/bin/python campaign.py \
+  > campaign.log 2>&1 &
+```
+
+Use the read-only gate check before starting a new supervisor:
+
+```bash
+python campaign.py --check
+```
+
+The supervisor starts each batch through `run.sh`. To run one batch explicitly for a new run name:
+
+```bash
+bash run.sh \
+  --run full-1000-batch-0001 \
+  --count 50 \
+  --task-timeout 1800
+```
+
+The batch command calls `collect.py`, which starts one ephemeral `codex exec` per task with GPT-6.1 Sol and the local ShopSimulator MCP bridge. Do not start a second supervisor while `campaign.py` or a batch is alive. The raw event stream and simulator logs stay in the campaign run directory for audit.
+
+After collecting raw trajectories, build the derived SFT files with:
+
+```bash
+python data/sft_gpt61/generate.py \
+  --raw /path/to/raw.jsonl \
+  --output /tmp/gpt61-sft \
+  --held-out data/evaluation/tasks.jsonl \
+  --validation-ratio 0.2 \
+  --seed 42
+```
+
 ## Reproducing post-training
 
 The checked-in data can be used with the existing training entry point:
