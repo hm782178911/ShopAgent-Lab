@@ -31,6 +31,23 @@ SGLang 0.5.16 使用独立环境，vLLM 0.25.1 使用已有独立安装，两者
 
 本仓库也提供了 GPT‑6.1 Sol 教师数据后训练复现入口：[数据说明](data/sft_gpt61/README.md)、[后训练说明](docs/gpt61-posttraining.md)。使用 `SFT_DATA_DIR=$PWD/data/sft_gpt61 bash scripts/sft.sh` 可沿用同一 SFT 配方；GRPO 继续使用现有 `scripts/grpo.sh` 和只读的 `data/grpo`。
 
+## GPT-6.1 Sol 教师数据实验
+
+本实验使用 GPT-6.1 Sol 通过 Codex CLI 采集的新增教师轨迹，严格按 ShopSimulator Reward v3 的 `gold_purchase` 筛选，最终冻结为 800 条训练数据和 200 条验证数据。实际 Qwen3.5 训练入口在 24576 token 上限下加载丢弃 0 条，训练/验证任务无重叠，原 `data/sft/` 数据保持不变。
+
+SFT 使用相同的 3 epoch LoRA 配方；随后使用现有 GRPO 配方完成 500 次有效更新。GRPO 只读复用仓库已有的 `data/grpo`，Base 结果复用同一轮实验中已完成的评估；新数据带来的变化体现在 SFT 和 GRPO。每组使用固定 Final-200 评估任务，失败和错误任务计入分母。
+
+| 数据与模型阶段 | SGLang 严格成功率 | vLLM 严格成功率 | 平均奖励（SGLang / vLLM） |
+|---|---:|---:|---:|
+| 原数据 SFT | 65.0%（130/200） | 69.5%（139/200） | 0.5637 / 0.6128 |
+| GPT-6.1 Sol 数据 SFT | **74.5%（149/200）** | **74.5%（149/200）** | **0.6728 / 0.6674** |
+| 原数据 GRPO500 | 67.0%（134/200） | 71.0%（142/200） | 0.5728 / 0.6137 |
+| GPT-6.1 Sol 数据 GRPO500 | **77.5%（155/200）** | **77.5%（155/200）** | **0.7090 / 0.7081** |
+
+相对原数据，新教师数据使 SFT 在 SGLang/vLLM 上分别提升 **9.5/5.0 个百分点**，GRPO500 分别提升 **10.5/6.5 个百分点**。这是单次固定 200 任务的实验观察，不能据此证明对所有任务、随机种子或后端都普遍成立。SGLang/vLLM 还存在已记录的 143 token 输入计数差异，因此不能把两者成绩差异直接解释为框架优劣。
+
+详细方法、数据验收和复现步骤见 [GPT-6.1 Sol 后训练说明](docs/gpt61-posttraining.md)，结果摘要见 [experiments/gpt61/summary.json](experiments/gpt61/summary.json)。
+
 ## 1. 环境与复现范围
 
 工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。
