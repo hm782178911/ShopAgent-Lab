@@ -12,7 +12,31 @@ bash scripts/setup.sh
 
 完整流程是：**准备环境 → Base 推理 → SFT → GRPO → 导出 → Final-200 评估**。模型权重、缓存、运行日志和中间轨迹不会提交到仓库；仓库只保留可复现的代码、最终数据、元数据和结果摘要。
 
-## 实验结果
+## 本次新增工作：GPT-6.1 Sol 后训练扩展
+
+本项目在原有 ShopAgent-Lab 流程上新增了一套 **GPT-6.1 Sol 教师数据采集与后训练实验**。这部分工作对应独立的数据、训练输出和结果摘要，不会修改或覆盖仓库原有的 `data/sft/`、`data/grpo/`、模型检查点或原实验输出。
+
+### 做了什么
+
+- 使用 ChatGPT 登录的 Codex CLI，以 `gpt-6.1-sol` 作为教师模型；
+- 为每个购物任务启动独立临时上下文，通过本地 MCP bridge 与 ShopSimulator 联动；
+- 让模型根据结构化 `SHOPPING_OBSERVATION_V2` 观察逐步调用购物工具，生成完整多轮轨迹；
+- 用 ShopSimulator Reward v3 严格筛选 `gold_purchase`，失败、无效和中断轨迹留在审计目录，不进入训练集；
+- 使用 Qwen3.5 的真实处理器和训练模板做 24576 token 加载检查，最终得到 800 条训练数据和 200 条验证数据，加载丢弃数为 0；
+- 在独立目录中复现 3 epoch SFT、500 步 GRPO，以及 SGLang/vLLM 双后端固定 200 任务评估。
+
+### 仓库中保留的内容
+
+- 最终可训练数据：[`data/sft_gpt61/`](data/sft_gpt61/)；
+- 数据生成说明和采集命令：[`data/sft_gpt61/GENERATION.md`](data/sft_gpt61/GENERATION.md)；
+- 从 raw JSONL 构建训练文件的脚本：[`data/sft_gpt61/generate.py`](data/sft_gpt61/generate.py)；
+- 数据校验、哈希和分区信息：[`data/sft_gpt61/metadata.json`](data/sft_gpt61/metadata.json)；
+- 训练结果摘要：[`experiments/gpt61/summary.json`](experiments/gpt61/summary.json)；
+- 完整流程、Codex 上下文结构和复现入口：[`docs/gpt61-posttraining.md`](docs/gpt61-posttraining.md)。
+
+原始 Codex 事件流、仿真器日志和机器相关审计文件不提交到仓库；采集端的 `campaign.py`、`run.sh` 和 `collect.py` 运行在已登录的采集机器上，仓库保留最终派生数据和可复查的生成脚本。教师数据的采集是多轮“模型决策 → 工具调用 → 仿真观察”循环，不是一次性预测整条操作序列。
+
+## 实验结果与基线对照
 
 所有结果都使用 Qwen3.5-2B、ShopSimulator Reward v3 和固定 200 个评估任务。严格成功指最终状态为 `gold_purchase` 且 `reward_valid=true`；失败和错误任务计入分母。每个模型的 SGLang/vLLM 评估使用相同导出权重。
 
