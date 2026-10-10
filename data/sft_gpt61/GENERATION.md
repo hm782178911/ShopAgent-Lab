@@ -8,6 +8,27 @@
 
 原始记录包含任务 ID、消息、工具调用、观测和终态结果。采集完成后保留 raw JSONL 和审计日志，不把它们直接当作训练数据。
 
+
+## 模型每一步看到什么
+
+Codex CLI 的一次任务不是把完整操作序列一次性生成出来，而是连续多轮决策。每一轮的上下文由任务提示、历史工具调用、历史仿真观察和当前可用的 shop MCP 工具 schema 组成。模型先调用 `get_task`，bridge 重置环境并返回结构化页面观察；之后每调用一个购物工具，仿真环境推进一步，新的页面观察再作为下一轮 tool result 返回给模型。
+
+简化后的数据流如下：
+
+```text
+user:      购物任务
+assistant: search_products({"query": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] 搜索结果和可点击动作
+assistant: open_product({"asin": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] 商品详情和可用选项
+assistant: select_option({"value": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] 更新后的选择状态
+assistant: buy_now({})
+tool:      任务结束
+```
+
+因此一条教师轨迹由多次模型推理和环境动作组成。教师只看到页面观察和工具结果，不看到 Reward v3 的详细字段、标准答案、训练文件或评估结果；这些字段只保存在审计轨迹中，用于后续严格筛选。
+
 ## 实际采集命令
 
 在已经登录 ChatGPT 的采集机器上运行持久化调度器：

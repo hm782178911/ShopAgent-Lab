@@ -10,6 +10,40 @@ Before promotion, the collector checked that task IDs and instruction hashes did
 
 The raw Codex events and machine-specific simulator logs are intentionally kept outside the repository. The repository contains only the final trainable JSONL files, their metadata, and the aggregate result summary.
 
+
+## Codex context and simulator interaction
+
+A normal Codex CLI conversation is a sequence of context items rather than one flat prompt. The effective context can contain runtime instructions, project `AGENTS.md` instructions, the user request, assistant messages, tool calls, and tool outputs. Codex CLI injects discovered `AGENTS.md` files before the user request and uses the tool result from one turn as input to the next turn.
+
+For teacher collection, the same conversation pattern is restricted to the shopping environment. One task runs in one ephemeral `codex exec` session. The effective input at each decision is conceptually:
+
+```text
+collection instructions
++ task instruction
++ previous assistant tool calls
++ previous ShopSimulator observations
++ available shop MCP tool schemas
+```
+
+The model first calls `get_task`. The bridge resets the simulator and returns the task instruction plus a structured page observation. The model then emits one shop tool call, such as `search_products` or `open_product`. The bridge validates the tool name and arguments, executes one environment step, records the native trajectory, and returns the new page observation as the next tool result. The model uses that updated conversation to choose the next action. A complete trajectory therefore contains multiple model decisions, not one prediction of the whole action sequence.
+
+The bridge exposes only the ShopSimulator MCP tools for this collection. It does not expose shell, file, web, reward-label, training-data, or evaluation tools. At termination it returns a generic completion message to the teacher; detailed Reward v3 fields are retained in the audit trajectory for filtering and are not shown to the teacher. The resulting SFT row keeps the task context, observations, and action calls while removing private reasoning and audit-only reward fields.
+
+A simplified message slice looks like this:
+
+```text
+user:      task instruction
+assistant: search_products({"query": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] search results and clickable actions
+assistant: open_product({"asin": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] product details and available options
+assistant: select_option({"value": "..."})
+tool:      [SHOPPING_OBSERVATION_V2] updated selected options
+assistant: buy_now({})
+tool:      task completed
+```
+
+
 ### Collection commands
 
 The durable campaign command runs the authenticated Codex CLI jobs in 50-task batches. Run it on the collection machine after configuring the local proxy and project environment:
