@@ -1,0 +1,22 @@
+{
+  "teacher": "gpt-6.1-sol",
+  "sft_data": "data/sft_gpt61",
+  "sft": {
+    "epochs": 3,
+    "rows": {
+      "train": 800,
+      "validation": 200
+    },
+    "sglang_strict_success_rate": 0.745,
+    "vllm_strict_success_rate": 0.745
+  },
+  "grpo": {
+    "steps": 500,
+    "effective_updates": 500,
+    "skipped_sampling_attempts": 430,
+    "sglang_strict_success_rate": 0.775,
+    "vllm_strict_success_rate": 0.775
+  },
+  "evaluation_tasks": 200,
+  "reward": "shopsimulator-reward-v3"
+}

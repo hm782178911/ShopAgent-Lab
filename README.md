@@ -29,6 +29,8 @@
 SGLang 0.5.16 使用独立环境，vLLM 0.25.1 使用已有独立安装，两者服务配置与软件栈存在差异。
 完整协议、结果局限与校验记录见 [详细报告](docs/reproduction-results.md) 和 [指标 JSON](docs/results/sglang-reproduction.json)。
 
+本仓库也提供了 GPT‑6.1 Sol 教师数据后训练复现入口：[数据说明](data/sft_gpt61/README.md)、[后训练说明](docs/gpt61-posttraining.md)。使用 `SFT_DATA_DIR=$PWD/data/sft_gpt61 bash scripts/sft.sh` 可沿用同一 SFT 配方；GRPO 继续使用现有 `scripts/grpo.sh` 和只读的 `data/grpo`。
+
 ## 1. 环境与复现范围
 
 工作流：**Baseline → LoRA SFT → 在线 GRPO → 导出 → Evaluation**。

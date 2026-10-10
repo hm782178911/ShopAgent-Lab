@@ -6,6 +6,7 @@ source "$ROOT/scripts/runtime_env.sh"
 BASE_MODEL="${BASE_MODEL:-$("$ROOT/.venv/bin/python" "$ROOT/scripts/download_model.py" --config "${MODEL_CONFIG:-$ROOT/configs/model.yaml}" --local-only)}"
 ADAPTER_DIR="${SFT_ADAPTER_DIR:-$ROOT/outputs/models/sft-lora}"
 MERGED_DIR="${SFT_MERGED_DIR:-$ROOT/outputs/models/sft-merged}"
+DATA_DIR="${SFT_DATA_DIR:-$ROOT/data/sft}"
 
 cd "$ROOT"
 for directory in "$ADAPTER_DIR" "$MERGED_DIR"; do
@@ -16,8 +17,8 @@ for directory in "$ADAPTER_DIR" "$MERGED_DIR"; do
 done
 "$ROOT/.venv/bin/python" scripts/train_lora_sft.py \
   --model "$BASE_MODEL" \
-  --train data/sft/train.jsonl \
-  --validation data/sft/validation.jsonl \
+  --train "$DATA_DIR/train.jsonl" \
+  --validation "$DATA_DIR/validation.jsonl" \
   --output "$ADAPTER_DIR" \
   --dtype auto \
   --gradient-checkpointing \

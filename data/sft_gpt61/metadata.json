@@ -1,0 +1,30 @@
+{
+  "schema_version": "shopping-sft-collection-v1",
+  "teacher": "gpt-6.1-sol",
+  "environment": "shopsimulator-environment-v2.1",
+  "reward": "shopsimulator-reward-v3",
+  "total": 1000,
+  "accepted": 1000,
+  "train": 800,
+  "validation": 200,
+  "split_seed": 42,
+  "max_length": 24576,
+  "loader_stats": {
+    "train": {
+      "total": 800,
+      "kept": 800,
+      "dropped": 0
+    },
+    "validation": {
+      "total": 200,
+      "kept": 200,
+      "dropped": 0
+    }
+  },
+  "partition_overlap": 0,
+  "source": "Codex CLI via ChatGPT login; raw trajectories and audit logs intentionally excluded",
+  "sha256": {
+    "train.jsonl": "8b76e9873d51f723bd7b9d461f66b747541a53b39d1f55c729631541ecb7bad4",
+    "validation.jsonl": "f719b525261e6291136a8966792f08241ed0f8f601f43265017b2bb18e312c1e"
+  }
+}
