@@ -1,52 +1,50 @@
 # ShopAgent-Lab
 
-面向购物 Agent 的后训练实践，涵盖 SFT、GRPO 与评估，基于 SGLang。
+ShopAgent-Lab 是一个面向购物 Agent 的后训练实践项目，覆盖 **SFT、GRPO、模型导出和固定任务评估**。项目基于 [shopping-grpo-longhorizon](https://github.com/YYHDBL/shopping-grpo-longhorizon) 进行 SGLang 适配，沿用 ShopSimulator 与 Reward v3。来源和授权信息见 [SOURCES.md](SOURCES.md)。
 
-本项目基于 [shopping-grpo-longhorizon](https://github.com/YYHDBL/shopping-grpo-longhorizon)
-复现并进行 SGLang 适配，沿用原作者数据、ShopSimulator 和 Reward v3。
-来源与授权状态见 [SOURCES.md](SOURCES.md)。上游历史成绩不代表本实现的效果。
+## 快速开始
+
+```bash
+git clone git@github.com:hm782178911/ShopAgent-Lab.git
+cd ShopAgent-Lab
+bash scripts/setup.sh
+```
+
+完整流程是：**准备环境 → Base 推理 → SFT → GRPO → 导出 → Final-200 评估**。模型权重、缓存、运行日志和中间轨迹不会提交到仓库；仓库只保留可复现的代码、最终数据、元数据和结果摘要。
 
 ## 实验结果
 
-基于 **Qwen3.5-2B**，沿用原作者训练数据，完成 3 个 epoch SFT 和 500 步 SGLang GRPO。
-六组评估均使用同一组固定 **200 个任务**、Reward v3 和相同评估协议；每个模型的双后端评估使用相同权重。
-严格成功指 `gold_purchase` 且 `reward_valid=true`；失败及错误任务计入分母。
+所有结果都使用 Qwen3.5-2B、ShopSimulator Reward v3 和固定 200 个评估任务。严格成功指最终状态为 `gold_purchase` 且 `reward_valid=true`；失败和错误任务计入分母。每个模型的 SGLang/vLLM 评估使用相同导出权重。
 
-| 模型阶段 | 推理后端 | 严格成功率 | 平均奖励 | 平均步数 | 评估耗时（分钟） |
-|---|---|---:|---:|---:|---:|
-| Base | SGLang | 0.5%（1/200） | -0.2364 | 6.79 | 9.92 |
-| Base | vLLM | 1.0%（2/200） | -0.1486 | 5.55 | 12.69 |
-| SFT | SGLang | 65.0%（130/200） | 0.5637 | 9.40 | 5.81 |
-| SFT | vLLM | 69.5%（139/200） | 0.6128 | 9.24 | 7.05 |
-| GRPO · step 500 | SGLang | 67.0%（134/200） | 0.5728 | 10.40 | 6.35 |
-| GRPO · step 500 | vLLM | 71.0%（142/200） | 0.6137 | 10.97 | 8.97 |
+### 原作者数据
 
-- **后训练效果**：SGLang 下成功率从 **0.5% → 65.0% → 67.0%**，GRPO 比 SFT 提升 **2.0 个百分点**。
-- **同权重推理对比**：最终 GRPO 模型在 vLLM 下为 **71.0%**，比 SGLang 多成功 8 个任务。单次 200 题结果不能证明框架的普遍优劣。
-- **训练与耗时口径**：GRPO 使用 SGLang 采样；vLLM 仅用于推理对比。500 步中累计跳过 51 次更新。评估耗时包含仿真和客户端开销，并非纯推理吞吐基准。
+原作者数据完成 3 个 epoch SFT 和 500 步 SGLang GRPO：
 
-实验使用两张 96 GB GPU；SFT 约 2 小时 1 分钟，GRPO 约 7 小时 23 分钟。
-SGLang 0.5.16 使用独立环境，vLLM 0.25.1 使用已有独立安装，两者服务配置与软件栈存在差异。
-完整协议、结果局限与校验记录见 [详细报告](docs/reproduction-results.md) 和 [指标 JSON](docs/results/sglang-reproduction.json)。
+| 阶段 | SGLang | vLLM |
+|---|---:|---:|
+| Base | 0.5%（1/200） | 1.0%（2/200） |
+| SFT | 65.0%（130/200） | 69.5%（139/200） |
+| GRPO500 | 67.0%（134/200） | 71.0%（142/200） |
 
-本仓库也提供了 GPT‑6.1 Sol 教师数据后训练复现入口：[数据说明](data/sft_gpt61/README.md)、[后训练说明](docs/gpt61-posttraining.md)。使用 `SFT_DATA_DIR=$PWD/data/sft_gpt61 bash scripts/sft.sh` 可沿用同一 SFT 配方；GRPO 继续使用现有 `scripts/grpo.sh` 和只读的 `data/grpo`。
+### GPT-6.1 Sol 教师数据
 
-## GPT-6.1 Sol 教师数据实验
+新增教师数据由 GPT‑6.1 Sol 通过 Codex CLI 采集，严格按 Reward v3 筛选，最终为 800 条训练数据和 200 条验证数据。Qwen3.5 训练入口在 24576 token 上限下加载丢弃 0 条，训练/验证任务无重叠，原 `data/sft/` 保持不变。
 
-本实验使用 GPT-6.1 Sol 通过 Codex CLI 采集的新增教师轨迹，严格按 ShopSimulator Reward v3 的 `gold_purchase` 筛选，最终冻结为 800 条训练数据和 200 条验证数据。实际 Qwen3.5 训练入口在 24576 token 上限下加载丢弃 0 条，训练/验证任务无重叠，原 `data/sft/` 数据保持不变。
-
-SFT 使用相同的 3 epoch LoRA 配方；随后使用现有 GRPO 配方完成 500 次有效更新。GRPO 只读复用仓库已有的 `data/grpo`，Base 结果复用同一轮实验中已完成的评估；新数据带来的变化体现在 SFT 和 GRPO。每组使用固定 Final-200 评估任务，失败和错误任务计入分母。
-
-| 数据与模型阶段 | SGLang 严格成功率 | vLLM 严格成功率 | 平均奖励（SGLang / vLLM） |
+| 阶段 | SGLang | vLLM | 平均奖励（SGLang / vLLM） |
 |---|---:|---:|---:|
-| 原数据 SFT | 65.0%（130/200） | 69.5%（139/200） | 0.5637 / 0.6128 |
-| GPT-6.1 Sol 数据 SFT | **74.5%（149/200）** | **74.5%（149/200）** | **0.6728 / 0.6674** |
-| 原数据 GRPO500 | 67.0%（134/200） | 71.0%（142/200） | 0.5728 / 0.6137 |
-| GPT-6.1 Sol 数据 GRPO500 | **77.5%（155/200）** | **77.5%（155/200）** | **0.7090 / 0.7081** |
+| SFT | **74.5%（149/200）** | **74.5%（149/200）** | **0.6728 / 0.6674** |
+| GRPO500 | **77.5%（155/200）** | **77.5%（155/200）** | **0.7090 / 0.7081** |
 
-相对原数据，新教师数据使 SFT 在 SGLang/vLLM 上分别提升 **9.5/5.0 个百分点**，GRPO500 分别提升 **10.5/6.5 个百分点**。这是单次固定 200 任务的实验观察，不能据此证明对所有任务、随机种子或后端都普遍成立。SGLang/vLLM 还存在已记录的 143 token 输入计数差异，因此不能把两者成绩差异直接解释为框架优劣。
+相对原作者数据，新教师数据使 SFT 在 SGLang/vLLM 上分别提升 **9.5/5.0 个百分点**，GRPO500 分别提升 **10.5/6.5 个百分点**。这是单次固定 200 任务的实验观察，不能据此推断对所有任务、随机种子或推理后端都普遍成立。
 
-详细方法、数据验收和复现步骤见 [GPT-6.1 Sol 后训练说明](docs/gpt61-posttraining.md)，结果摘要见 [experiments/gpt61/summary.json](experiments/gpt61/summary.json)。
+GPT‑6.1 Sol 数据和复现入口：
+
+- 数据：[data/sft_gpt61/](data/sft_gpt61/)
+- 后训练说明：[docs/gpt61-posttraining.md](docs/gpt61-posttraining.md)
+- 结果摘要：[experiments/gpt61/summary.json](experiments/gpt61/summary.json)
+- 使用新 SFT 数据：`SFT_DATA_DIR=$PWD/data/sft_gpt61 bash scripts/sft.sh`
+
+SGLang/vLLM 存在已记录的 143 token 输入计数差异，因此不能把两者成绩差异直接解释为框架优劣。完整协议和结果局限见 [详细报告](docs/reproduction-results.md)。
 
 ## 1. 环境与复现范围
 
